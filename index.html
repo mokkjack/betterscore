@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scoreboard Controller</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h2 { margin-bottom: 10px; }
+    h3 { margin-top: 20px; }
+    button { margin: 4px; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+
+<h2>Scoreboard Controller</h2>
+
+<h3>Score</h3>
+<div style="margin-bottom: 15px;">
+  <label>Home: <input type="number" id="homeScore" style="width: 60px; padding: 4px;" /></label>
+  <label style="margin-left: 20px;">Away: <input type="number" id="awayScore" style="width: 60px; padding: 4px;" /></label>
+  <button onclick="setScore()">Set</button>
+</div>
+<button onclick="post('/score/home')">Home +</button>
+<button onclick="post('/score/away')">Away +</button>
+<button onclick="post('/score/reset')">Reset</button>
+
+<h3>Period</h3>
+<div style="margin-bottom: 15px;">
+  <label>Period: <input type="number" id="periodInput" style="width: 60px; padding: 4px;" /></label>
+  <button onclick="setPeriod()">Set</button>
+</div>
+<button onclick="post('/period/next')">Next Period</button>
+<button onclick="post('/period/reset')">Reset</button>
+
+<h3>Power Play</h3>
+<div style="margin-bottom: 15px;">
+  <label>Duration: <input type="text" id="ppTimeInput" placeholder="MM:SS" style="width: 60px; padding: 4px;" /></label>
+  <button onclick="setPPTime()">Set</button>
+</div>
+<div id="displayPPTime" style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">--:--</div>
+<button onclick="post('/pp/home')">Home PP</button>
+<button onclick="post('/pp/away')">Away PP</button>
+<button onclick="post('/pp/clear')">Clear PP</button>
+
+<h3>Clock</h3>
+<div style="margin-bottom: 15px;">
+  <label>Time: <input type="text" id="timeInput" placeholder="MM:SS" style="width: 60px; padding: 4px;" /></label>
+  <button onclick="setTime()">Set</button>
+</div>
+<div id="displayTime" style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">--:--</div>
+<button onclick="post('/clock/start')">Start</button>
+<button onclick="post('/clock/stop')">Stop</button>
+<button onclick="post('/clock/reset')">Reset</button>
+
+<script>
+function post(path) {
+  fetch("http://localhost:3000" + path, { method: "POST" });
+}
+
+function updateDisplay() {
+  fetch("http://localhost:3000/state")
+    .then(res => res.json())
+    .then(state => {
+      document.getElementById("homeScore").value = state.home;
+      document.getElementById("awayScore").value = state.away;
+      document.getElementById("periodInput").value = state.period;
+      document.getElementById("timeInput").value = formatTime(state.seconds);
+      document.getElementById("displayTime").textContent = formatTime(state.seconds);
+      document.getElementById("ppTimeInput").value = formatTime(state.powerPlaySeconds);
+      document.getElementById("displayPPTime").textContent = formatTime(state.powerPlaySeconds);
+    });
+}
+
+function formatTime(sec) {
+  const m = String(Math.floor(sec / 60)).padStart(2, "0");
+  const s = String(sec % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function parseTimeToSeconds(timeStr) {
+  if (!timeStr || !timeStr.includes(":")) return null;
+  const parts = timeStr.split(":");
+  if (parts.length !== 2) return null;
+  const minutes = parseInt(parts[0], 10);
+  const seconds = parseInt(parts[1], 10);
+  if (Number.isNaN(minutes) || Number.isNaN(seconds)) return null;
+  if (seconds < 0 || seconds > 59 || minutes < 0) return null;
+  return minutes * 60 + seconds;
+}
+
+function debounce(fn, delay) {
+  let timerId;
+  return (...args) => {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+function setScore() {
+  const home = document.getElementById("homeScore").value;
+  const away = document.getElementById("awayScore").value;
+  const homeNum = parseInt(home, 10);
+  const awayNum = parseInt(away, 10);
+  if (Number.isNaN(homeNum) || Number.isNaN(awayNum)) return;
+  fetch("http://localhost:3000/set/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ home: homeNum, away: awayNum })
+  }).then(() => updateDisplay());
+}
+
+function setPeriod() {
+  const period = document.getElementById("periodInput").value;
+  const periodNum = parseInt(period, 10);
+  if (Number.isNaN(periodNum)) return;
+  fetch("http://localhost:3000/set/period", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ period: periodNum })
+  }).then(() => updateDisplay());
+}
+
+function setTime() {
+  const timeStr = document.getElementById("timeInput").value;
+  const seconds = parseTimeToSeconds(timeStr);
+  if (seconds === null) return;
+  fetch("http://localhost:3000/set/time", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seconds: seconds })
+  }).then(() => updateDisplay());
+}
+
+function setPPTime() {
+  const timeStr = document.getElementById("ppTimeInput").value;
+  const seconds = parseTimeToSeconds(timeStr);
+  if (seconds === null) return;
+  fetch("http://localhost:3000/set/pp/time", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seconds: seconds })
+  }).then(() => updateDisplay());
+}
+
+// Load initial state on page load
+window.addEventListener("load", () => {
+  updateDisplay();
+
+  const debouncedSetScore = debounce(setScore, 200);
+  const debouncedSetPeriod = debounce(setPeriod, 200);
+  const debouncedSetTime = debounce(setTime, 300);
+  const debouncedSetPPTime = debounce(setPPTime, 300);
+
+  document.getElementById("homeScore").addEventListener("input", debouncedSetScore);
+  document.getElementById("awayScore").addEventListener("input", debouncedSetScore);
+  document.getElementById("periodInput").addEventListener("input", debouncedSetPeriod);
+  document.getElementById("timeInput").addEventListener("change", debouncedSetTime);
+  document.getElementById("ppTimeInput").addEventListener("change", debouncedSetPPTime);
+});
+// Refresh display every second to show clock countdown
+setInterval(updateDisplay, 1000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "name": "scoreboard-controller",
+  "version": "1.0.0",
+  "main": "main.js",
+  "description": "A better scorebug app",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac --publish=never"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.scoreboard.controller",
+    "productName": "Scoreboard Controller",
+    "files": [
+      "main.js",
+      "index.html",
+      "data/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities"
+    },
+    "directories": {
+      "buildResources": "assets"
+    }
+  }
+}
